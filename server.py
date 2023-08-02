@@ -2,16 +2,17 @@ import socket
 import _thread
 from env import *
 import pickle
-from playerdata import PlayerData
+from player import Player
 
 from helpers import META_WIDTH, make_packet
 
-p1=PlayerData(1, "RED", 100, 50)
-p2=PlayerData(2, "BLUE", 300, 200)
+p1 = Player(1, color_str="RED", x=100, y=50)
+p2 = Player(2, color_str="BLUE", x=300, y=200)
 players = [p1, p2]
 
+
 def select_player():
-    player=None
+    player = None
     for p in players:
         if not p.joined:
             p.joined = True
@@ -20,22 +21,23 @@ def select_player():
     return player
 
 
-def find_opponent(player):
+def find_opponent(player: Player):
     return players[player.opponent_id() - 1]
 
 
 active_connections = []
 
-player_count=0
+player_count = 0
+
+
 def thread_client(conn):
     run = True
-    player=select_player()
+    player = select_player()
     if not player:
         conn.send("Already 2 players".encode())
-        run=False
+        run = False
     else:
         conn.send(player.pickle())
-
 
     while run:
         try:
@@ -49,7 +51,7 @@ def thread_client(conn):
                 if "OPPONENT" in instruction:
                     opponent = find_opponent(player)
                     if opponent.joined:
-                        packet=make_packet("OPPONENT", opponent.pickle())
+                        packet = make_packet("OPPONENT", opponent.pickle())
                         conn.sendall(packet)
                     else:
                         conn.sendall("NO_OPPONENT".encode())
@@ -66,9 +68,8 @@ def thread_client(conn):
 
     print("Lost connection")
     if player:
-        player.joined=False
+        player.joined = False
     conn.close()
-
 
 
 if __name__ == "__main__":
