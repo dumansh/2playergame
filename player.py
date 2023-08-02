@@ -1,10 +1,14 @@
 from typing import Tuple
 import pygame
+import pickle
 from pygame import Surface
 import color
 
 from network import Network
+from playerdata import PlayerData
 from env import *
+from helpers import META_WIDTH
+from helpers import make_packet, META_WIDTH
 
 STEP_SIZE = 3
 
@@ -30,28 +34,28 @@ class Player():
 
     def __repr__(self):
         return str(self.player_id) + ": " + self.color_str + " (" + str(self.x) + ", " + str(self.y) + ")"
-
-    def network_friendly_stringify(self):
-        return str(self.player_id) + ", " + self.color_str + ", " + str(self.x) + ", " + str(self.y)
+    @property
+    def playerinfo(self):
+        return PlayerData(self.player_id, self.color_str, self.x, self.y, True)
 
 
     def connect(self):
         self.network = Network(HOST, PORT)
-        info = self.network.connect()
-        self.create_player_from_server_info(info)
+        playerinfo = self.network.connect()
+        self.create_player_from_server_info(playerinfo)
 
-    def create_player_from_server_info(self, info):
-        info_tuple_str = tuple(map(str, info.split(', ')))
-        self.player_id = int(info_tuple_str[0])
-        self.color_str = info_tuple_str[1]
+    def create_player_from_server_info(self, playerinfo: PlayerData):
+
+        self.player_id = playerinfo.player_id
+        self.color_str = playerinfo.color_str
         self.color = color.str_to_color(self.color_str)
-        self.x = int(info_tuple_str[2])
-        self.y = int(info_tuple_str[3])
+        self.x = playerinfo.posX
+        self.y = playerinfo.posY
 
-    def update_player_from_server_info(self, info):
-        info_tuple_str = tuple(map(str, info.split(', ')))
-        self.x = int(info_tuple_str[2])
-        self.y = int(info_tuple_str[3])
+    def update_from_pickle(self, data: bytes):
+        playerinfo = pickle.loads(data)
+        self.x = playerinfo.posX
+        self.y = playerinfo.posY
 
     def draw(self, win: Surface):
         pygame.draw.rect(win, self.color, self.rect)
@@ -72,14 +76,26 @@ class Player():
 
         # print(self.rect)
 
-    def send(self, msg):
+    def send(self, msg: bytes):
         return self.network.send(msg)
 
+    def sendstr(self, msg: str):
+        return self.network.send(msg.encode())
+
+    def ask_for_opponent(self):
+        opponent_info = self.sendstr("OPPONENT")
+        meta=opponent_info[:META_WIDTH].decode()
+        if "NO_OPPONENT" not in meta:
+            opponent = pickle.loads(opponent_info[META_WIDTH:])
+            return opponent
+
+
+
     def inform_server(self):
-        info=self.network_friendly_stringify()
-        return self.send(f"MOVE, {info}")
+        packet=make_packet("MOVE", self.playerinfo.pickle())
+        return self.send(packet)
 
 
 if __name__ == "__main__":
-    p = Player(50, 50)
-    # p.connect()
+    p = Player()
+    p.connect()

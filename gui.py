@@ -2,7 +2,6 @@ import pygame
 from player import Player
 import color
 from pygame import Surface
-import time
 
 width = 500
 height = 500
@@ -14,10 +13,12 @@ pygame.display.set_caption("My Game")
 clientNumber = 0
 
 
-def redraw_window(win: Surface, player: Player, opponent: Player):
+def redraw_window(win: Surface, player: Player, opponent: Player = None):
     win.fill(color.WHITE)
+
+    if opponent:
+        opponent.draw(win)
     player.draw(win)
-    opponent.draw(win)
     pygame.display.update()
 
 
@@ -25,11 +26,12 @@ def main():
     run = True
     p = Player()
     p.connect()
-
-    opponent_data = p.send("OPPONENT")
-    opponent = None
+    win.fill(color.WHITE)
+    p.draw(win)
+    pygame.display.update()
 
     clock = pygame.time.Clock()
+    opponent = None
     while run:
         clock.tick(30)
         for event in pygame.event.get():
@@ -37,20 +39,16 @@ def main():
                 run = False
                 pygame.quit()
         p.move()
-        if opponent_data == "NO_OPPONENT":
-            win.fill(color.WHITE)
-            p.draw(win)
-            pygame.display.update()
-        while opponent_data == "NO_OPPONENT":
-            opponent_data = p.send("OPPONENT")
-
         if opponent is None:
-            opponent = Player()
-            opponent.create_player_from_server_info(opponent_data)
-
-        opponent_current_data = p.inform_server()
-        opponent.update_player_from_server_info(opponent_current_data)
+            opponent_info = p.ask_for_opponent()
+            if opponent_info:
+                opponent = Player()
+                opponent.create_player_from_server_info(opponent_info)
+        if opponent:
+            opponent_current_pickle = p.inform_server()
+            opponent.update_from_pickle(opponent_current_pickle)
         redraw_window(win, p, opponent)
 
 
-main()
+if __name__ == "__main__":
+    main()
